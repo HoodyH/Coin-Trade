@@ -1,0 +1,13 @@
+scipy
+numpy
+matplotlib
+pandas
+sklearn
+alpha_vantage
+keras
+tensorflow
+mplfinance
+
+jupyterlab
+jupyter
+notebook
