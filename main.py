@@ -3,6 +3,7 @@ from keras.layers import Dense, Dropout, LSTM, Input, Activation, concatenate
 import tensorflow as tf
 import numpy as np
 from predictions.util import csv_to_dataset, history_points
+from sklearn.model_selection import train_test_split
 
 seed_value = 4
 np.random.seed(seed_value)
@@ -13,18 +14,24 @@ cro = "./datasets/crypto-com-coin_2018-12-14_2021-12-13.csv"
 
 
 def predict():
-    ohlcv_histories, technical_indicators, next_day_open_values, unscaled_y, y_normaliser = csv_to_dataset(btc)
+    x_ohlcv_norm, technical_indicators, y_o_norm, unscaled_y, y_normaliser = csv_to_dataset(cro)
 
     test_split = 0.9
-    n = int(ohlcv_histories.shape[0] * test_split)
+    n = int(x_ohlcv_norm.shape[0] * test_split)
 
-    ohlcv_train = ohlcv_histories[:n]
+    x_train, x_test, y_train, y_test = train_test_split(
+        x_ohlcv_norm,
+        y_o_norm,
+        test_size=0.10
+    )
+
+    ohlcv_train = x_ohlcv_norm[:n]
     tech_ind_train = technical_indicators[:n]
-    y_train = next_day_open_values[:n]
+    y_train = y_o_norm[:n]
 
-    ohlcv_test = ohlcv_histories[n:]
+    ohlcv_test = x_ohlcv_norm[n:]
     tech_ind_test = technical_indicators[n:]
-    y_test = next_day_open_values[n:]
+    y_test = y_o_norm[n:]
 
     unscaled_y_test = unscaled_y[n:]
 
@@ -34,7 +41,7 @@ def predict():
     # model architecture
 
     # define two sets of inputs
-    lstm_input = Input(shape=(history_points, 4), name='lstm_input')
+    lstm_input = Input(shape=(history_points, 5), name='lstm_input')
     dense_input = Input(shape=(technical_indicators.shape[1],), name='tech_input')
 
     # the first branch operates on the first input
@@ -59,13 +66,13 @@ def predict():
     model = Model(inputs=[lstm_branch.input, technical_indicators_branch.input], outputs=z)
     adam = tf.optimizers.Adam(learning_rate=0.0005)
     model.compile(optimizer=adam, loss='mse')
-    model.fit(x=[ohlcv_train, tech_ind_train], y=y_train, batch_size=32, epochs=50, shuffle=True, validation_split=0.1)
+    model.fit(x=[ohlcv_train, tech_ind_train], y=y_train, batch_size=32, epochs=20, shuffle=True, validation_split=0.1)
 
     # evaluation
 
     y_test_predicted = model.predict([ohlcv_test, tech_ind_test])
     y_test_predicted = y_normaliser.inverse_transform(y_test_predicted)
-    y_predicted = model.predict([ohlcv_histories, technical_indicators])
+    y_predicted = model.predict([x_ohlcv_norm, technical_indicators])
     y_predicted = y_normaliser.inverse_transform(y_predicted)
     assert unscaled_y_test.shape == y_test_predicted.shape
     real_mse = np.mean(np.square(unscaled_y_test - y_test_predicted))
