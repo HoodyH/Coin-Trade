@@ -2,4 +2,5 @@
 /.ipynb_checkpoints/
 /venv/
 
+*.sqlite3
 *.pyc
